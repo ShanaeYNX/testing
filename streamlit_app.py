@@ -4,16 +4,7 @@ import streamlit as st
 from datetime import date
 import pickle
 import pandas as pd
-
-try:
-    import xgboost as xgb
-except ModuleNotFoundError:
-    print("XGBoost is not installed. Attempting to install...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "xgboost"])
-        import xgboost as xgb
-    except Exception as e:
-        print(f"Failed to install XGBoost: {e}")
+import xgboost as xgb
 
 #Load the model
 model = xgb.XGBRegressor()
