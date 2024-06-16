@@ -1,40 +1,80 @@
-import altair as alt
+#import libraries
 import numpy as np
-import pandas as pd
 import streamlit as st
+from datetime import date
+import pickle
+import pandas as pd
+import xgboost as xgb
 
-"""
-# Welcome to Streamlit!
+#Load the model
+model = xgb.XGBRegressor()
+model.load_model('xg_final.model')
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+st.write("""
+# Predicting Used Car Prices
+This app predicts the ** used car prices ** for:
+- PARF cars, < 10yo only
+- excludes OPC cars
+- excludes imported used cars 
+\nand its **depreciation** using features input via the **side panel** 
+""")
+# Load the dataframe skeleton for prediction
+df_skeleton = pd.read_csv('df_skeleton_1_4.csv', index_col = 0)
+# Load the brand_list
+brand_list = pickle.load(open('brand_list_v4.pkl', 'rb'))
+# Load the modelsubmodel_db list
+modelsubmodel_db = pickle.load(open('modelsubmodel_db_v4.pkl', 'rb'))
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+def addYears(d, years):
+    try:
+    # Return same day of the current year
+        return d.replace(year=d.year + years)
+    except ValueError:
+    # If not same day, it will return other, i.e.  February 29 to March 1 etc.
+        return d + (date(d.year + years, 1, 1) - date(d.year, 1, 1))
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+def get_user_input():
+    """
+    this function is used to get user input using sidebar slider and selectbox
+    return type : pandas dataframe
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+    """
+    make = st.sidebar.selectbox("Select Make", options = brand_list)
+    model_submodel = st.sidebar.selectbox("Select Model-submodel", options= modelsubmodel_db[make])
+    no_of_owners = st.sidebar.number_input('Number of Owners', min_value= 1)
+    mileage = st.sidebar.number_input('Mileage(km)', min_value= 10)
+    reg_date = st.sidebar.date_input('Car Registration Date', max_value= date.today())
+    coe_qp = st.sidebar.number_input('COE QP ($)', min_value= 10000)
+    arf = st.sidebar.number_input('ARF ($)', min_value = 100)
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+    coe_days_left = float((addYears(reg_date, 10) - date.today()).days -1)
+
+    df_skeleton.loc[0, 'ARF'] = arf
+    df_skeleton.loc[0, 'COE_LISTED'] = coe_qp
+    df_skeleton.loc[0, 'DAYS_OF_COE_LEFT'] = coe_days_left
+    df_skeleton.loc[0, 'NO_OF_OWNERS'] = no_of_owners
+    df_skeleton.loc[0, 'MILEAGE_KM'] = mileage
+    df_skeleton.loc[0, make] = 1
+    df_skeleton.loc[0, model_submodel] = 1
+
+    return df_skeleton, make, model_submodel, arf, coe_days_left
+
+df_skeleton, make, model_submodel, arf, coe_days_left = get_user_input()
+df_skeleton.fillna(value = 0, inplace = True)
+
+st.subheader('Model input parameters(transformed)')
+st.write(df_skeleton[[make, model_submodel, 'NO_OF_OWNERS', 'MILEAGE_KM', 'DAYS_OF_COE_LEFT', 'COE_LISTED', 'ARF']])
+
+
+# when 'Predict' is clicked, make the prediction and store it
+if st.sidebar.button("Predict"):
+ result = int(np.exp(model.predict(df_skeleton.values)[0]))
+ st.success('Estimated pricing of vehicle is : ${:,}'.format(result))
+ parf = 0.5 * arf
+ depreciation = int((result - parf) / (coe_days_left / 365))
+ st.success('Estimated depreciation is : ${:,} /year'.format(depreciation))
+
+
+
