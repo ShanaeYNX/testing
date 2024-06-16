@@ -1,4 +1,4 @@
-!pip install xgboost
+pip install xgboost
 
 #import libraries
 import numpy as np
