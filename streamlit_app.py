@@ -23,7 +23,6 @@ df_skeleton = pd.read_csv('df_skeleton.csv', index_col = 0)
 # Load the brand_list
 brand_list = pickle.load(open('brand_list.pkl', 'rb'))
 
-
 def addYears(d, years):
     try:
     # Return same day of the current year
@@ -185,28 +184,23 @@ def get_user_input():
         df_skeleton.loc[0, 'TYPE_OF_VEHICLE_Sports Car'] = 0
         df_skeleton.loc[0, 'TYPE_OF_VEHICLE_Stationwagon'] = 1
         
-    brands_list = [
-    'BRAND_Audi', 'BRAND_BMW', 'BRAND_Bentley', 'BRAND_Citroen', 'BRAND_Ferrari',
-    'BRAND_Honda', 'BRAND_Hyundai', 'BRAND_Jaguar', 'BRAND_Kia', 'BRAND_Lamborghini',
-    'BRAND_Land', 'BRAND_Lexus', 'BRAND_MINI', 'BRAND_Maserati', 'BRAND_Mazda',
-    'BRAND_Mercedes-Benz', 'BRAND_Mitsubishi', 'BRAND_Nissan', 'BRAND_Opel', 'BRAND_Peugeot',
-    'BRAND_Porsche', 'BRAND_Rolls-Royce', 'BRAND_SEAT', 'BRAND_Skoda', 'BRAND_Subaru',
-    'BRAND_Suzuki', 'BRAND_Toyota', 'BRAND_Volkswagen', 'BRAND_Volvo', 'BRAND_other']
-
+    brand_col = {}
+    for brand in brand_list:
+        brand_col[brand] = 'BRAND_'+brand
+    
     # Initialize columns for each brand with zeros
-    for brand in brands_list:
-        data[brand] = 0
+    for col in brands_col:
+        df_skeleton.loc[0, brand] = 0
     
     # Set indicator variables based on 'brand' column
     for brand in brands_list:
-        data.loc[make == brand, brand] = 1
-        
-    df_skeleton.loc[0, make] = 1
+        if make == brand:
+            temp = brand_col[brand]
+            df_skeleton.loc[0, temp] = 1
 
-    return df_skeleton, make, arf, coe_days_left
+    return df_skeleton
 
-df_skeleton, make, arf, coe_days_left = get_user_input()
-df_skeleton.fillna(value = 0, inplace = True)
+df_skeleton = get_user_input()
 
 st.subheader('Model input parameters(transformed)')
 st.write(df_skeleton[[make,  'NO_OF_OWNERS', 'MILEAGE_KM', 'DAYS_OF_COE_LEFT', 'COE_LISTED', 'ARF']])
@@ -216,9 +210,6 @@ st.write(df_skeleton[[make,  'NO_OF_OWNERS', 'MILEAGE_KM', 'DAYS_OF_COE_LEFT', '
 if st.sidebar.button("Predict"):
  result = int(np.exp(model.predict(df_skeleton.values)[0]))
  st.success('Estimated pricing of vehicle is : ${:,}'.format(result))
- parf = 0.5 * arf
- depreciation = int((result - parf) / (coe_days_left / 365))
- st.success('Estimated depreciation is : ${:,} /year'.format(depreciation))
 
 
 
